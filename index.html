@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Gym Progress Tracker — Offline</title>
+
+<style>
+/* ====== RESET / THEME ====== */
+:root{
+  --bg:#ffffff;
+  --panel:#f6f7f9;
+  --panel2:#ffffff;
+  --text:#111;
+  --muted:#6b7280;
+  --border:#e5e7eb;
+  --accent:#2563eb;
+  --gold:#f5c542;
+  --green:#22c55e;
+  --yellow:#fbbf24;
+  --injury:#ef4444;
+  --gray:#e5e7eb;
+  --radius:14px;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+}
+
+[data-theme="dark"]{
+  --bg:#0b0c0f;
+  --panel:#14151b;
+  --panel2:#0f1116;
+  --text:#f3f4f6;
+  --muted:#9ca3af;
+  --border:#252833;
+  --accent:#60a5fa;
+  --gray:#2a2f3a;
+}
+
+*{ box-sizing:border-box; }
+html,body{ height:100%; margin:0; }
+body{
+  font-family:var(--sans);
+  background:var(--bg);
+  color:var(--text);
+}
+
+/* ====== LAYOUT ====== */
+.app{
+  height:100%;
+  display:flex;
+  flex-direction:column;
+}
+
+.topbar{
+  display:flex;
+  gap:8px;
+  align-items:center;
+  padding:10px 12px;
+  border-bottom:1px solid var(--border);
+  background:var(--panel2);
+}
+
+.brand{
+  font-weight:800;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.tabs{
+  display:flex;
+  gap:4px;
+  padding:4px;
+  border:1px solid var(--border);
+  border-radius:999px;
+  background:var(--panel);
+}
+
+.tab{
+  border:0;
+  background:transparent;
+  padding:6px 10px;
+  border-radius:999px;
+  cursor:pointer;
+  color:var(--muted);
+  font-weight:700;
+}
+.tab.active{
+  background:var(--panel2);
+  color:var(--text);
+}
+
+.btn{
+  border:1px solid var(--border);
+  background:var(--panel2);
+  border-radius:10px;
+  padding:6px 10px;
+  cursor:pointer;
+  font-weight:700;
+}
+
+.btn.primary{
+  background:var(--accent);
+  color:#fff;
+  border-color:transparent;
+}
+
+.btn.danger{
+  background:var(--injury);
+  color:#fff;
+  border-color:transparent;
+}
+
+.spacer{ flex:1; }
+
+.main{
+  flex:1;
+  display:grid;
+  grid-template-columns:320px 1fr 300px;
+  min-height:0;
+}
+
+.panel{
+  border-right:1px solid var(--border);
+  background:var(--panel);
+  overflow:auto;
+}
+
+.panel.right{
+  border-left:1px solid var(--border);
+  border-right:none;
+}
+
+.panel .inner{
+  padding:12px;
+}
+
+h2{
+  margin:0 0 8px;
+  font-size:13px;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+
+/* ====== TABLE ====== */
+.tableWrap{
+  height:100%;
+  overflow:auto;
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  background:var(--panel2);
+}
+
+.grid{
+  display:grid;
+  grid-auto-rows:minmax(32px,auto);
+  min-width:900px;
+}
+
+.th,.td,.rowhead{
+  border-right:1px solid var(--border);
+  border-bottom:1px solid var(--border);
+  padding:6px 8px;
+  display:flex;
+  align-items:center;
+}
+
+.th{
+  font-weight:800;
+  background:var(--panel);
+  position:sticky;
+  top:0;
+  z-index:5;
+}
+
+.rowhead{
+  position:sticky;
+  left:0;
+  background:var(--panel2);
+  z-index:4;
+  min-width:300px;
+}
+
+.td{
+  background:var(--panel2);
+  cursor:text;
+}
+
+.td[data-color="gold"]{ background:color-mix(in oklab,var(--gold),var(--panel2) 85%); }
+.td[data-color="green"]{ background:color-mix(in oklab,var(--green),var(--panel2) 88%); }
+.td[data-color="yellow"]{ background:color-mix(in oklab,var(--yellow),var(--panel2) 88%); }
+.td[data-color="injury"]{
+  background:color-mix(in oklab,var(--injury),var(--panel2) 85%);
+  box-shadow: inset 0 0 0 2px color-mix(in oklab,var(--injury),transparent 55%);
+}
+
+.cell{
+  display:flex;
+  gap:6px;
+  width:100%;
+}
+
+.cell .val{
+  font-family:var(--mono);
+  font-size:13px;
+}
+
+.cell .goal{
+  margin-left:auto;
+  font-size:11px;
+  color:var(--muted);
+}
+
+.injBtn{
+  border:1px solid var(--border);
+  background:transparent;
+  border-radius:8px;
+  padding:2px 6px;
+  cursor:pointer;
+  opacity:0;
+}
+
+.td:hover .injBtn{ opacity:1; }
+
+/* ====== INPUT ====== */
+input.cellInput{
+  width:100%;
+  border:0;
+  outline:none;
+  background:transparent;
+  font-family:var(--mono);
+  font-size:13px;
+}
+
+/* ====== STATS ====== */
+.stat{
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:var(--panel2);
+  padding:10px;
+  margin-bottom:8px;
+}
+.stat .n{ font-size:18px; font-weight:900; }
+
+/* ====== ANALYTICS ====== */
+canvas{
+  width:100%;
+  height:220px;
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:var(--panel2);
+}
+</style>
+</head>
+
+<body>
+<div class="app" id="app" data-theme="light">
+
+<div class="topbar">
+  <div class="brand">🏋 Gym Tracker</div>
+
+  <div class="tabs">
+    <button class="tab active" id="tabTable">Таблица</button>
+    <button class="tab" id="tabAnalytics">Аналитика</button>
+  </div>
+
+  <button class="btn primary" id="btnAddWorkout">+ Тренировка</button>
+
+  <div class="spacer"></div>
+
+  <button class="btn" id="btnExport">Export</button>
+  <button class="btn" id="btnImport">Import</button>
+  <button class="btn danger" id="btnReset">Сброс</button>
+</div>
+
+<div class="main">
+  <div class="panel">
+    <div class="inner">
+      <h2>Структура</h2>
+      <button class="btn" id="btnAddBlock">+ Блок</button>
+      <div id="structure"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="inner">
+      <div class="tableWrap">
+        <div class="grid" id="grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel right">
+    <div class="inner">
+      <h2>Статистика</h2>
+      <div class="stat"><div class="n" id="statGold">0</div>Рекорды</div>
+      <div class="stat"><div class="n" id="statGreen">0</div>Новые веса</div>
+      <div class="stat"><div class="n" id="statYellow">0</div>Новые упражнения</div>
+      <div class="stat"><div class="n" id="statInj">0</div>Травмы</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ====== STATE + DB ====== */
+const DB_KEY = "gym_tracker_singlefile_v1";
+let state = null;
+
+const uid = p => p+"_"+Math.random().toString(16).slice(2);
+
+function seed(){
+  return {
+    ui:{ theme:"light" },
+    blocks:[
+      {id:"b1",name:"ГРУДЬ"},
+      {id:"b2",name:"БИЦЕПС"},
+      {id:"b3",name:"СПИНА"},
+      {id:"b4",name:"ДЕЛЬТЫ"},
+      {id:"b5",name:"НОГИ"}
+    ],
+    exercises:[],
+    weights:{},
+    workouts:[],
+    entries:{}
+  };
+}
+
+function load(){
+  const raw = localStorage.getItem(DB_KEY);
+  state = raw ? JSON.parse(raw) : seed();
+}
+
+function save(){
+  localStorage.setItem(DB_KEY, JSON.stringify(state));
+}
+/* ====== HELPERS ====== */
+function parseSets(str){
+  if(!str) return [];
+  return str.split(/[+, ]+/).map(x=>parseInt(x,10)).filter(n=>!isNaN(n));
+}
+
+function bestSet(sets){
+  return sets.length ? Math.max(...sets) : 0;
+}
+
+function entryKey(t,e,w,s){ return `${t}|${e}|${w}|${s}`; }
+
+/* ====== RENDER TABLE ====== */
+function renderTable(){
+  const grid = document.getElementById("grid");
+  grid.innerHTML = "";
+
+  const cols = state.workouts.length;
+  grid.style.gridTemplateColumns = `300px repeat(${cols},140px)`;
+
+  grid.append(cell("th","Блок / Упражнение / Вес"));
+
+  state.workouts.forEach(t=>{
+    grid.append(cell("th",t.date));
+  });
+
+  state.blocks.forEach(b=>{
+    grid.append(cell("rowhead",b.name));
+
+    state.workouts.forEach(()=>grid.append(cell("td","")));
+  });
+}
+
+/* ====== UI ====== */
+function cell(cls,text){
+  const d=document.createElement("div");
+  d.className=cls;
+  d.textContent=text;
+  return d;
+}
+
+/* ====== EVENTS ====== */
+document.getElementById("btnAddWorkout").onclick=()=>{
+  const d=prompt("Дата ДД.ММ.ГГГГ");
+  if(!d) return;
+  state.workouts.unshift({id:uid("t"),date:d});
+  save();
+  renderTable();
+};
+
+document.getElementById("btnAddBlock").onclick=()=>{
+  const n=prompt("Название блока");
+  if(!n) return;
+  state.blocks.push({id:uid("b"),name:n});
+  save();
+  renderTable();
+};
+
+document.getElementById("btnReset").onclick=()=>{
+  if(confirm("Сбросить всё?")){
+    state=seed();
+    save();
+    renderTable();
+  }
+};
+
+/* ====== INIT ====== */
+load();
+renderTable();
+</script>
+
+</div>
+</body>
+</html>
